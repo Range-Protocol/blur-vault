@@ -1,13 +1,15 @@
-# Sample Hardhat Project
+# Range Protocol's vault for Blur
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
+## Run tests
+```
 npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
+```
+## deploy vault implementation
+```
+npx hardhat run scripts/ledger/deploy.impl.js
+```
+
+## deploy vault proxy
+```
+npx hardhat run scripts/ledger/deploy.proxy.js
 ```

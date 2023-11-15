@@ -144,6 +144,7 @@ contract RangeProtocolBlurVault is
         if (_blurPool.balanceOf(address(this)) < withdrawAmount) {
             revert VaultErrors.InsufficientVaultBalance();
         }
+        _burn(msg.sender, shares);
 
         state.blurPool.withdraw(withdrawAmount);
         Address.sendValue(payable(msg.sender), withdrawAmount);

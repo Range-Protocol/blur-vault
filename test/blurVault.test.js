@@ -1,15 +1,9 @@
-const {
-  time,
-  loadFixture,
-  mine,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
-const { ethers, upgrades } = require("hardhat");
-const { getImplementationAddress } = require("@openzeppelin/upgrades-core");
+const { ethers } = require("hardhat");
 
+const bn = (value) => ethers.BigNumber.from(value);
 const getInitData = ({ manager, blurPool, blend, name, symbol }) => {
-  return ethers.AbiCoder.defaultAbiCoder().encode(
+  return ethers.utils.defaultAbiCoder.encode(
     ["address", "address", "address", "string", "string"],
     [manager, blurPool, blend, name, symbol]
   );
@@ -58,6 +52,12 @@ let { lien, lienId } = createLienFromData({
   auctionStartBlock: 18575427,
 });
 
+async function mineNBlocks(n) {
+  for (let index = 0; index < n; index++) {
+    await ethers.provider.send("evm_mine");
+  }
+}
+
 const BLUR_POOL = "0x0000000000A39bb272e79075ade125fd351887Ac";
 const BLEND = "0x29469395eAf6f95920E59F858042f0e28D98a20B";
 const HELPERS_LIB_ADDRESS = "0x5c55cd67a6bD0D4C315B50CB6CD589bfB080017E";
@@ -70,6 +70,7 @@ let manager;
 let user;
 let blend;
 let blurPool;
+let debt;
 
 describe("Blur Vault", () => {
   before(async () => {
@@ -87,23 +88,21 @@ describe("Blur Vault", () => {
         },
       }
     );
-    vault = await upgrades.deployProxy(
-      RangeProtocolBlurVault,
-      [
-        getInitData({
-          manager: manager.address,
-          blurPool: BLUR_POOL,
-          blend: BLEND,
-          name: VAULT_NAME,
-          symbol: VAULT_SYMBOL,
-        }),
-      ],
-      {
-        unsafeAllowLinkedLibraries: true,
-      }
-    );
-    await vault.waitForDeployment();
-    vaultAddress = await vault.getAddress();
+    const vaultImpl = await RangeProtocolBlurVault.deploy();
+    const initData = getInitData({
+      manager: manager.address,
+      blurPool: BLUR_POOL,
+      blend: BLEND,
+      name: VAULT_NAME,
+      symbol: VAULT_SYMBOL,
+    });
+    const calldata = vaultImpl.interface.encodeFunctionData("initialize", [
+      initData,
+    ]);
+    const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
+    const proxy = await ERC1967Proxy.deploy(vaultImpl.address, calldata);
+    vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
+    vaultAddress = vault.address;
 
     expect(await vault.blurPool()).to.be.equal(BLUR_POOL);
     expect(await vault.blend()).to.be.equal(BLEND);
@@ -120,14 +119,16 @@ describe("Blur Vault", () => {
     });
 
     it("should not mint vault shares when deposit amount param is different from actual sent amount", async () => {
-      const amount = ethers.parseEther("2");
+      const amount = ethers.utils.parseEther("2");
       await expect(
-        vault.connect(user).mint(amount, { value: ethers.parseEther("1") })
+        vault
+          .connect(user)
+          .mint(amount, { value: ethers.utils.parseEther("1") })
       ).to.be.revertedWithCustomError(vault, "InvalidETHAmount");
     });
 
     it("should mint vault shares", async () => {
-      const amount = ethers.parseEther("100");
+      const amount = ethers.utils.parseEther("100");
       expect(await blurPool.balanceOf(vaultAddress)).to.be.equal(0);
       await expect(vault.connect(user).mint(amount, { value: amount }))
         .to.emit(vault, "Minted")
@@ -151,17 +152,18 @@ describe("Blur Vault", () => {
         await vault.refinanceAuction(lien, lienId, newRate)
       ).wait();
       const vaultBalanceAfter = await blurPool.balanceOf(vaultAddress);
-
-      let debt;
       txData.logs.forEach((log) => {
-        const parsedLog = blurPool.interface.parseLog(log);
-        if (!!parsedLog && parsedLog.name === "Transfer")
-          debt = parsedLog.args[2];
+        try {
+          const parsedLog = blurPool.interface.parseLog(log);
+          if (!!parsedLog && parsedLog.name === "Transfer")
+            debt = bn(parsedLog.args[2]);
+        } catch (e) {}
       });
-      expect(vaultBalanceAfter).to.be.equal(vaultBalanceBefore - debt);
+
+      expect(vaultBalanceAfter).to.be.equal(vaultBalanceBefore.sub(debt));
       const timestamp = (await ethers.provider.getBlock(txData.blockNumber))
         .timestamp;
-      const hash = ethers.AbiCoder.defaultAbiCoder().encode(
+      const hash = ethers.utils.defaultAbiCoder.encode(
         [
           "tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,uint256)",
           // "address",
@@ -189,7 +191,9 @@ describe("Blur Vault", () => {
         ]
       );
 
-      expect(await blend.liens(lienId)).to.be.equal(ethers.keccak256(hash));
+      expect(await blend.liens(lienId)).to.be.equal(
+        ethers.utils.keccak256(hash)
+      );
       const vaultUnderlyingBalanceBeforeTimelapse =
         await vault.getUnderlyingBalance();
       expect(await blurPool.balanceOf(vaultAddress)).lt(
@@ -250,7 +254,7 @@ describe("Blur Vault", () => {
 
   describe("Seize NFT", () => {
     before(async () => {
-      await mine(lien.auctionDuration);
+      await mineNBlocks(lien.auctionDuration);
     });
 
     it("should not seize NFT by non-manager", async () => {
@@ -309,13 +313,13 @@ describe("Blur Vault", () => {
       liquidateOrder = {
         collection: lien.collection,
         tokenId: lien.tokenId,
-        amount: ethers.parseEther("1.2"),
+        amount: debt.add(ethers.utils.parseEther("1")),
         recipient: user.address,
         nonce: await vault.nonces(user.address),
         deadline: new Date().getTime() + 10_000,
       };
 
-      signature = await manager.signTypedData(domain, types, liquidateOrder);
+      signature = await manager._signTypedData(domain, types, liquidateOrder);
     });
 
     it("should not liquidate seized NFT with zero amount", async () => {
@@ -348,7 +352,7 @@ describe("Blur Vault", () => {
             liquidateOrder.deadline,
             signature,
             {
-              value: liquidateOrder.amount / BigInt(2),
+              value: liquidateOrder.amount.div(2),
             }
           )
       ).to.be.revertedWithCustomError(vault, "InvalidETHAmount");
@@ -362,7 +366,7 @@ describe("Blur Vault", () => {
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
-            ethers.ZeroAddress,
+            ethers.constants.AddressZero,
             liquidateOrder.deadline,
             signature,
             {
@@ -395,7 +399,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
-            ethers.ZeroAddress,
+            ethers.constants.AddressZero,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
             liquidateOrder.recipient,
@@ -428,7 +432,7 @@ describe("Blur Vault", () => {
 
     it("liquidate seized NFT", async () => {
       expect(
-        ethers.verifyTypedData(domain, types, liquidateOrder, signature)
+        ethers.utils.verifyTypedData(domain, types, liquidateOrder, signature)
       ).to.be.equal(manager.address);
 
       const collection = await ethers.getContractAt("IERC721", lien.collection);
@@ -468,7 +472,7 @@ describe("Blur Vault", () => {
 
       const vaultBalanceAfter = await blurPool.balanceOf(vaultAddress);
       expect(vaultBalanceAfter).to.be.equal(
-        vaultBalanceBefore + liquidateOrder.amount
+        vaultBalanceBefore.add(liquidateOrder.amount)
       );
 
       expect(await collection.ownerOf(liquidateOrder.tokenId)).to.not.be.equal(
@@ -499,8 +503,48 @@ describe("Blur Vault", () => {
     });
   });
 
+  describe("Burn", () => {
+    it("should not burn 0 shares", async () => {
+      await expect(vault.connect(user).burn(0)).to.be.revertedWithCustomError(
+        vault,
+        "ZeroBurnAmount"
+      );
+    });
+
+    it("should not burn more shares than owned", async () => {
+      await expect(vault.burn(12324)).to.be.revertedWithCustomError(
+        vault,
+        "InsufficientUserBalance"
+      );
+    });
+
+    it("should burn shares by the user", async () => {
+      const underlyingBalance = await vault.getUnderlyingBalance();
+      const userETHBalanceBefore = await ethers.provider.getBalance(
+        user.address
+      );
+      const userVaultBalance = await vault.balanceOf(user.address);
+      expect(userVaultBalance).to.be.equal(await vault.totalSupply());
+
+      await expect(vault.connect(user).burn(userVaultBalance))
+        .to.emit(vault, "Burned")
+        .withArgs(user.address, userVaultBalance, underlyingBalance);
+
+      expect(await ethers.provider.getBalance(user.address)).to.be.gt(
+        userETHBalanceBefore
+      );
+      expect(await vault.totalSupply()).to.be.equal(0);
+      expect(await vault.balanceOf(user.address)).to.be.equal(0);
+    });
+  });
+
   describe("Upgradeability", () => {
-    it("non-manager should not upgrade proxy", async () => {
+    let vaultImpl;
+    const upgradeInterface = new ethers.utils.Interface([
+      "function upgradeToAndCall(address newImplementation, bytes memory data) public",
+    ]);
+
+    before(async () => {
       const RangeProtocolBlurVault = await ethers.getContractFactory(
         "MockVault",
         {
@@ -509,38 +553,30 @@ describe("Blur Vault", () => {
           },
         }
       );
-      await vault.transferOwnership(user.address);
+
+      vaultImpl = await RangeProtocolBlurVault.deploy();
+    });
+
+    it("non-manager should not upgrade proxy", async () => {
       await expect(
-        upgrades.upgradeProxy(vaultAddress, RangeProtocolBlurVault, {
-          unsafeAllowLinkedLibraries: true,
+        user.sendTransaction({
+          to: vaultAddress,
+          data: upgradeInterface.encodeFunctionData("upgradeToAndCall", [
+            vaultImpl.address,
+            "0x",
+          ]),
         })
       ).to.be.revertedWith("Ownable: caller is not the manager");
-      await vault.connect(user).transferOwnership(manager.address);
     });
 
     it("manager should upgrade proxy", async () => {
-      const RangeProtocolBlurVault = await ethers.getContractFactory(
-        "MockVault",
-        {
-          libraries: {
-            Helpers: HELPERS_LIB_ADDRESS,
-          },
-        }
-      );
-      const oldImpl = await getImplementationAddress(
-        ethers.provider,
-        vaultAddress
-      );
-      await (
-        await upgrades.upgradeProxy(vaultAddress, RangeProtocolBlurVault, {
-          unsafeAllowLinkedLibraries: true,
-        })
-      ).waitForDeployment();
-      const newImpl = await getImplementationAddress(
-        ethers.provider,
-        vaultAddress
-      );
-      expect(newImpl).to.not.be.equal(oldImpl);
+      await manager.sendTransaction({
+        to: vaultAddress,
+        data: upgradeInterface.encodeFunctionData("upgradeToAndCall", [
+          vaultImpl.address,
+          "0x",
+        ]),
+      });
     });
   });
 });
