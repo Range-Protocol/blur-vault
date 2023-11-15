@@ -24,7 +24,12 @@ import {VaultErrors} from "./errors/VaultErrors.sol";
 import {FullMath} from "./libraries/FullMath.sol";
 import {DataTypes} from "./libraries/DataTypes.sol";
 
+import "hardhat/console.sol";
 
+/**
+ * @title RangeProtocolBlurVault
+ * @dev The contract provides fungible interface for lending ETH on Blur protocol based on strategy run by Range.
+ */
 contract RangeProtocolBlurVault is
     Initializable,
     UUPSUpgradeable,
@@ -37,27 +42,29 @@ contract RangeProtocolBlurVault is
     IERC721Receiver,
     RangeProtocolBlurVaultStorage
 {
+    // Typehash for liquidation of seized NFT.
     bytes32 private constant LIQUIDATE_ORDER_TYPEHASH =
         keccak256(
             "LiquidateOrder(address collection,uint256 tokenId,uint256 amount,address recipient,uint256 nonce,uint256 deadline)"
         );
 
-    modifier validateLien(Lien calldata lien, uint256 lienId) {
-        if (
-            hashLien(state.liens[state.lienIdToIndex[lienId]].lien) !=
-            hashLien(lien)
-        ) revert VaultErrors.InvalidLien(lien, lienId);
-        _;
-    }
-
+    // Receives ETH from BlurPool contract upon redeeming of BlurPool tokens.
     receive() external payable {
         require(msg.sender == address(state.blurPool));
     }
 
+    /**
+     * @notice Authorizes manager to upgrade the vault implementation.
+     * @param newImplementation address of new implementation.
+     */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyManager {}
 
+    /**
+     * @dev initializes the contract upon proxy deployment.
+     * @param data contains the data to initialize the vault's initial storage state.
+     */
     function initialize(bytes memory data) external override initializer {
         (
             address _manager,
@@ -89,9 +96,14 @@ contract RangeProtocolBlurVault is
         state.blend = IBlend(_blend);
     }
 
+    /**
+     * @dev mints vault shares to the user.
+     * @param amount the amount of ETH to deposit to the vault.
+     * @return shares amount of vault shares minted to the depositor.
+     */
     function mint(
         uint256 amount
-    ) external payable nonReentrant returns (uint256 shares) {
+    ) external payable override nonReentrant returns (uint256 shares) {
         if (amount == 0 || amount > msg.value) {
             revert VaultErrors.InvalidETHAmount(amount);
         }
@@ -114,7 +126,14 @@ contract RangeProtocolBlurVault is
         emit Minted(msg.sender, shares, amount);
     }
 
-    function burn(uint256 shares) external nonReentrant {
+    /**
+     * @dev burns vault shares and redeems underlying asset for the user.
+     * @param shares amount of shares to burn from the user
+     * @param withdrawAmount amount of underlying assets withdrawn by the user.
+     */
+    function burn(
+        uint256 shares
+    ) external override nonReentrant returns (uint256 withdrawAmount) {
         if (shares == 0) {
             revert VaultErrors.ZeroBurnAmount();
         }
@@ -122,8 +141,7 @@ contract RangeProtocolBlurVault is
             revert VaultErrors.InsufficientUserBalance();
         }
 
-        uint256 withdrawAmount = (getUnderlyingBalance() * shares) /
-            totalSupply();
+        withdrawAmount = (getUnderlyingBalance() * shares) / totalSupply();
         IBlurPool _blurPool = state.blurPool;
         if (_blurPool.balanceOf(address(this)) < withdrawAmount) {
             revert VaultErrors.InsufficientVaultBalance();
@@ -135,11 +153,18 @@ contract RangeProtocolBlurVault is
         emit Burned(msg.sender, shares, withdrawAmount);
     }
 
+    /**
+     * @dev Refinances an auction on Blur protocol using BlurPool tokens held by the vault.
+     * Can only be called by the manager.
+     * @param lien the lien to refinance.
+     * @param lienId the id of the lien to be refinanced.
+     * @param rate the new rate to refinance the lien at.
+     */
     function refinanceAuction(
         Lien calldata lien,
         uint256 lienId,
         uint256 rate
-    ) external onlyManager {
+    ) external override onlyManager {
         IBlurPool _blurPool = state.blurPool;
         uint256 debt = Helpers.computeCurrentDebt(
             lien.amount,
@@ -165,50 +190,69 @@ contract RangeProtocolBlurVault is
             })
         });
         state.liens.push(newLienData);
-        state.lienIdToIndex[lienId] = state.liens.length - 1;
-        uint256 blurBalanceBefore = _blurPool.balanceOf(address(this));
+        state.lienIdToIndex[lienId] = state.liens.length;
+        uint256 blurPoolBalanceBefore = _blurPool.balanceOf(address(this));
         state.blend.refinanceAuction(lien, lienId, rate);
-        if (blurBalanceBefore > _blurPool.balanceOf(address(this)) + debt) {
+        if (_blurPool.balanceOf(address(this)) + debt < blurPoolBalanceBefore) {
             revert VaultErrors.ImbalancedVaultAsset();
         }
 
-        if (state.blend.liens(lienId) != hashLien(newLienData.lien)) {
+        if (state.blend.liens(lienId) != _hashLien(newLienData.lien)) {
             revert VaultErrors.RefinanceFailed();
         }
         emit Loaned(lienId, debt);
     }
 
-    event AuctionStarted(Lien lien, uint256 lienId);
-
+    /**
+     * @dev Starts auction for a lien. Can only be called by the manager.
+     * @param lien lien to start the auction for.
+     * @param lienId the lien id of the lien to be auctioned off.
+     */
     function startAuction(
         Lien calldata lien,
         uint256 lienId
-    ) external onlyManager validateLien(lien, lienId) {
-        state.liens[state.lienIdToIndex[lienId]].lien.auctionStartBlock = block
-            .number;
+    ) external override onlyManager {
+        uint256 lienArrayIdx = state.lienIdToIndex[lienId] - 1;
+        if (_hashLien(state.liens[lienArrayIdx].lien) != _hashLien(lien))
+            revert VaultErrors.InvalidLien(lien, lienId);
+
+        state.liens[lienArrayIdx].lien.auctionStartBlock = block.number;
         state.blend.startAuction(lien, lienId);
-
-        emit AuctionStarted(lien, lienId);
+        emit AuctionStarted(address(lien.collection), lien.tokenId, lienId);
     }
 
-    event NFTSeized(address collection, uint256 tokenId);
-
-    function seize(LienPointer[] calldata lienPointers) external onlyManager {
+    /**
+     * @dev Seizes the NFT which has an auction expired against it. Can only be called by the manager.
+     * @param lienPointers the list of liens from which the NFTs are to be seized.
+     */
+    function seize(
+        LienPointer[] calldata lienPointers
+    ) external override onlyManager {
         state.blend.seize(lienPointers);
-        //        for (uint256 i = 0; i < lienPointers.length; i++) emit NFTSeized();
+        for (uint256 i = 0; i < lienPointers.length; i++) {
+            emit NFTSeized(
+                address(lienPointers[i].lien.collection),
+                lienPointers[i].lien.tokenId,
+                lienPointers[i].lienId
+            );
+        }
     }
 
-    function cleanUpLiensArray() external {
+    /**
+     * @dev Cleans up the liens from liens array which are not active anymore.
+     * Anyone can call it.
+     */
+    function cleanUpLiensArray() external override {
         IBlend _blend = state.blend;
         uint256 length = state.liens.length;
         for (uint256 i = 0; i < length; ) {
             DataTypes.LienData memory lienData = state.liens[i];
-            if (_blend.liens(lienData.lienId) != hashLien(lienData.lien)) {
+            if (_blend.liens(lienData.lienId) != _hashLien(lienData.lien)) {
                 state.liens[i] = state.liens[length - 1];
                 state.liens.pop();
 
                 if (i != length - 1) {
-                    state.lienIdToIndex[state.liens[i].lienId] = i;
+                    state.lienIdToIndex[state.liens[i].lienId] = i + 1;
                 }
                 length--;
                 continue;
@@ -219,6 +263,16 @@ contract RangeProtocolBlurVault is
         }
     }
 
+    /**
+     * @dev liquidates NFT and sells it off to the buyer through verifying an off-chain manager signed signature.
+     * The buyer must pay the ETH amount specified as amount in the liquidate order data.
+     * @param collection the collection address of the NFT.
+     * @param tokenId the id of the NFT.
+     * @param amount amount of ETH to be paid by the user.
+     * @param recipient recipient of the NFT.
+     * @param deadline the timestamp by which the signature is valid.
+     * @param signature the manager signed signature.
+     */
     function liquidateNFT(
         address collection,
         uint256 tokenId,
@@ -226,7 +280,7 @@ contract RangeProtocolBlurVault is
         address recipient,
         uint256 deadline,
         bytes calldata signature
-    ) external payable {
+    ) external payable override {
         if (amount == 0 || amount > msg.value) {
             revert VaultErrors.InvalidETHAmount(amount);
         }
@@ -273,17 +327,29 @@ contract RangeProtocolBlurVault is
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function getUnderlyingBalance() public view returns (uint256) {
+    /**
+     * @dev returns underlying balance of the vault. The underlying balance is the sum
+     * of passive balance in the vault + all debt owned by the vault.
+     */
+    function getUnderlyingBalance() public view override returns (uint256) {
         return
             state.blurPool.balanceOf(address(this)) + getCurrentlyOwnedDebt();
     }
 
-    function getCurrentlyOwnedDebt() public view returns (uint256 ownedDebt) {
+    /**
+     * @dev returns currently owned debt by the vault.
+     */
+    function getCurrentlyOwnedDebt()
+        public
+        view
+        override
+        returns (uint256 ownedDebt)
+    {
         IBlend _blend = state.blend;
         uint256 length = state.liens.length;
         for (uint256 i = 0; i < length; i++) {
             DataTypes.LienData memory lienData = state.liens[i];
-            if (_blend.liens(lienData.lienId) == hashLien(lienData.lien)) {
+            if (_blend.liens(lienData.lienId) == _hashLien(lienData.lien)) {
                 ownedDebt += Helpers.computeCurrentDebt(
                     lienData.lien.amount,
                     lienData.lien.rate,
@@ -293,7 +359,10 @@ contract RangeProtocolBlurVault is
         }
     }
 
-    function hashLien(Lien memory lien) private pure returns (bytes32) {
+    /**
+     * @dev hashes the lien struct passed to it and returns it.
+     */
+    function _hashLien(Lien memory lien) private pure returns (bytes32) {
         return keccak256(abi.encode(lien));
     }
 }

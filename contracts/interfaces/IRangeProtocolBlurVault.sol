@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import {IRangeProtocolBlurVaultGetters} from "./IRangeProtocolBlurVaultGetters.sol";
+import {Lien, LienPointer} from "../blur/contracts/blend/lib/Structs.sol";
 
 interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
     struct LiquidateNFT {
@@ -21,6 +22,28 @@ interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
         uint256 amount,
         address recipient
     );
+    event AuctionStarted(address collection, uint256 tokenId, uint256 lienId);
+    event NFTSeized(address collection, uint256 tokenId, uint256 lienId);
 
     function initialize(bytes memory data) external;
+    function mint(uint256 amount) external payable returns (uint256 shares);
+    function burn(uint256 shares) external returns (uint256 withdrawAmount);
+    function refinanceAuction(
+        Lien calldata lien,
+        uint256 lienId,
+        uint256 rate
+    ) external;
+    function startAuction(Lien calldata lien, uint256 lienId) external;
+    function seize(LienPointer[] calldata lienPointers) external;
+    function cleanUpLiensArray() external;
+    function liquidateNFT(
+        address collection,
+        uint256 tokenId,
+        uint256 amount,
+        address recipient,
+        uint256 deadline,
+        bytes calldata signature
+    ) external payable;
+    function getUnderlyingBalance() external view returns (uint256);
+    function getCurrentlyOwnedDebt() external view returns (uint256 ownedDebt);
 }

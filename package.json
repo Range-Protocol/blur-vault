@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "npx hardhat test",
-    "prettier": "prettier --write 'contracts/**/**/*.sol'",
+    "prettier-contracts": "prettier --write 'contracts/**/**/*.sol'",
+    "prettier-test": "prettier --write 'test/**/**/*.js'",
     "size": "npx hardhat size-contracts"
   },
   "author": "",
