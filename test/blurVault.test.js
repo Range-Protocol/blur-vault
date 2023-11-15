@@ -435,6 +435,7 @@ describe("Blur Vault", () => {
         vaultAddress
       );
       const vaultBalanceBefore = await blurPool.balanceOf(vaultAddress);
+      expect(await vault.nonces(user.address)).to.be.equal(0);
       // address collection,
       // uint256 tokenId,
       // uint256 amount,
@@ -475,6 +476,25 @@ describe("Blur Vault", () => {
       expect(await collection.ownerOf(liquidateOrder.tokenId)).to.be.equal(
         user.address
       );
+      expect(await vault.nonces(user.address)).to.be.equal(1);
+    });
+
+    it("should fail replaying the liquidate NFT order", async () => {
+      await expect(
+        vault
+          .connect(user)
+          .liquidateNFT(
+            liquidateOrder.collection,
+            liquidateOrder.tokenId,
+            liquidateOrder.amount,
+            liquidateOrder.recipient,
+            liquidateOrder.deadline,
+            signature,
+            {
+              value: liquidateOrder.amount,
+            }
+          )
+      ).to.be.revertedWithCustomError(vault, "InvalidSignature");
     });
   });
 });
