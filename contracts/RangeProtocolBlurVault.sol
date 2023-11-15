@@ -24,8 +24,6 @@ import {VaultErrors} from "./errors/VaultErrors.sol";
 import {FullMath} from "./libraries/FullMath.sol";
 import {DataTypes} from "./libraries/DataTypes.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title RangeProtocolBlurVault
  * @dev The contract provides fungible interface for lending ETH on Blur protocol based on strategy run by Range.

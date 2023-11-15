@@ -6,6 +6,7 @@ const {
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { getImplementationAddress } = require("@openzeppelin/upgrades-core");
 
 const getInitData = ({ manager, blurPool, blend, name, symbol }) => {
   return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -495,6 +496,51 @@ describe("Blur Vault", () => {
             }
           )
       ).to.be.revertedWithCustomError(vault, "InvalidSignature");
+    });
+  });
+
+  describe("Upgradeability", () => {
+    it("non-manager should not upgrade proxy", async () => {
+      const RangeProtocolBlurVault = await ethers.getContractFactory(
+        "MockVault",
+        {
+          libraries: {
+            Helpers: HELPERS_LIB_ADDRESS,
+          },
+        }
+      );
+      await vault.transferOwnership(user.address);
+      await expect(
+        upgrades.upgradeProxy(vaultAddress, RangeProtocolBlurVault, {
+          unsafeAllowLinkedLibraries: true,
+        })
+      ).to.be.revertedWith("Ownable: caller is not the manager");
+      await vault.connect(user).transferOwnership(manager.address);
+    });
+
+    it("manager should upgrade proxy", async () => {
+      const RangeProtocolBlurVault = await ethers.getContractFactory(
+        "MockVault",
+        {
+          libraries: {
+            Helpers: HELPERS_LIB_ADDRESS,
+          },
+        }
+      );
+      const oldImpl = await getImplementationAddress(
+        ethers.provider,
+        vaultAddress
+      );
+      await (
+        await upgrades.upgradeProxy(vaultAddress, RangeProtocolBlurVault, {
+          unsafeAllowLinkedLibraries: true,
+        })
+      ).waitForDeployment();
+      const newImpl = await getImplementationAddress(
+        ethers.provider,
+        vaultAddress
+      );
+      expect(newImpl).to.not.be.equal(oldImpl);
     });
   });
 });
