@@ -17,4 +17,5 @@ library VaultErrors {
     error InvalidRecipient(address recipient);
     error OutdatedOrder(uint256 deadline);
     error InvalidSignature(bytes signature);
+    error InvalidManagerFee(uint256 managerFee);
 }

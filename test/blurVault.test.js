@@ -37,19 +37,19 @@ const createLienFromData = (data) => {
 };
 
 let { lien, lienId } = createLienFromData({
-  id: 1014374,
-  lienId: 10762,
-  block: 18575427,
-  time: "2023-11-15 06:11:47.000 UTC",
-  collection: "0x8821bee2ba0df28761afff119d66390d594cd280",
-  borrower: "0x3dfb265c05e7bf4b3f3e5d477947318ca48d5917",
-  lender: "0xcbb0fe555f61d23427740984325b4583a4a34c82",
-  tokenId: 6017,
-  amount: "2639289189796039053",
-  rate: 880,
+  id: 1016898,
+  lienId: 16084,
+  block: 18581124,
+  time: "2023-11-16 01:20:11.000 UTC",
+  collection: "0xd3d9ddd0cf0a5f0bfb8f7fceae075df687eaebab",
+  borrower: "0x5e5c817e9264b46cbbb980198684ad9d14f3e0b4",
+  lender: "0x51fee9bf45c5dab188b57048658696edab9d72cf",
+  tokenId: 3693,
+  amount: "240153470052526694",
+  rate: 0,
   auctionDuration: 9000,
-  startTime: 1699940399,
-  auctionStartBlock: 18575427,
+  startTime: 1699995311,
+  auctionStartBlock: 18581124,
 });
 
 async function mineNBlocks(n) {
@@ -103,6 +103,8 @@ describe("Blur Vault", () => {
     const proxy = await ERC1967Proxy.deploy(vaultImpl.address, calldata);
     vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
     vaultAddress = vault.address;
+    console.log((await ethers.provider.getBlock("latest")).number);
+    console.log(vaultAddress);
 
     expect(await vault.blurPool()).to.be.equal(BLUR_POOL);
     expect(await vault.blend()).to.be.equal(BLEND);
@@ -503,6 +505,29 @@ describe("Blur Vault", () => {
     });
   });
 
+  describe("Manager Fee", () => {
+    it("should not set manager fee by non-manager", async () => {
+      await expect(vault.connect(user).setManagerFee(500)).to.be.revertedWith(
+        "Ownable: caller is not the manager"
+      );
+    });
+
+    it("should not set manager fee by non-manager", async () => {
+      const INVALID_MANAGER_FEE = 1001;
+      await expect(
+        vault.setManagerFee(INVALID_MANAGER_FEE)
+      ).to.be.revertedWithCustomError(vault, "InvalidManagerFee");
+    });
+
+    it("should set manager fee my manager", async () => {
+      await expect(vault.setManagerFee(500))
+        .to.emit(vault, "ManagerFeeSet")
+        .withArgs(500);
+
+      expect(await vault.managerFee()).to.be.equal(500);
+    });
+  });
+
   describe("Burn", () => {
     it("should not burn 0 shares", async () => {
       await expect(vault.connect(user).burn(0)).to.be.revertedWithCustomError(
@@ -526,15 +551,33 @@ describe("Blur Vault", () => {
       const userVaultBalance = await vault.balanceOf(user.address);
       expect(userVaultBalance).to.be.equal(await vault.totalSupply());
 
+      const managerFee = 500;
+      const fee = underlyingBalance.mul(managerFee).div(10_000);
+      const withdrawAmount = underlyingBalance.sub(fee);
       await expect(vault.connect(user).burn(userVaultBalance))
         .to.emit(vault, "Burned")
-        .withArgs(user.address, userVaultBalance, underlyingBalance);
+        .withArgs(user.address, userVaultBalance, withdrawAmount);
 
       expect(await ethers.provider.getBalance(user.address)).to.be.gt(
         userETHBalanceBefore
       );
       expect(await vault.totalSupply()).to.be.equal(0);
       expect(await vault.balanceOf(user.address)).to.be.equal(0);
+      expect(await ethers.provider.getBalance(vaultAddress)).to.be.equal(fee);
+    });
+  });
+
+  describe("ManagerFee", () => {
+    it("should not collect manager fee by non-manager", async () => {
+      await expect(vault.connect(user).collectManagerFee()).to.be.revertedWith(
+        "Ownable: caller is not the manager"
+      );
+    });
+
+    it("should not collect manager fee by non-manager", async () => {
+      expect(await ethers.provider.getBalance(vaultAddress)).to.not.be.equal(0);
+      await vault.collectManagerFee();
+      expect(await ethers.provider.getBalance(vaultAddress)).to.be.equal(0);
     });
   });
 

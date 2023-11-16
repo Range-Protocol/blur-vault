@@ -16,5 +16,6 @@ library DataTypes {
         IBlend blend;
         LienData[] liens;
         mapping(uint256 => uint256) lienIdToIndex;
+        uint256 managerFee;
     }
 }

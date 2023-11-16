@@ -24,6 +24,7 @@ interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
     );
     event AuctionStarted(address collection, uint256 tokenId, uint256 lienId);
     event NFTSeized(address collection, uint256 tokenId, uint256 lienId);
+    event ManagerFeeSet(uint256 managerFee);
 
     function initialize(bytes memory data) external;
     function mint(uint256 amount) external payable returns (uint256 shares);
@@ -44,6 +45,8 @@ interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
         uint256 deadline,
         bytes calldata signature
     ) external payable;
+    function setManagerFee(uint256 managerFee) external;
     function getUnderlyingBalance() external view returns (uint256);
     function getCurrentlyOwnedDebt() external view returns (uint256 ownedDebt);
+    function collectManagerFee() external;
 }

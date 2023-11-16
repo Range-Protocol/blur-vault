@@ -31,4 +31,8 @@ abstract contract RangeProtocolBlurVaultStorage is IRangeProtocolBlurVault {
     function liensCount() external view override returns (uint256) {
         return state.liens.length;
     }
+
+    function managerFee() external view returns (uint256) {
+        return state.managerFee;
+    }
 }

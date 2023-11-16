@@ -40,6 +40,8 @@ contract RangeProtocolBlurVault is
     IERC721Receiver,
     RangeProtocolBlurVaultStorage
 {
+    uint256 public constant MAX_MANAGER_FEE = 1000; // capped at 10%
+
     // Typehash for liquidation of seized NFT.
     bytes32 private constant LIQUIDATE_ORDER_TYPEHASH =
         keccak256(
@@ -92,6 +94,8 @@ contract RangeProtocolBlurVault is
 
         state.blurPool = IBlurPool(_blurPool);
         state.blend = IBlend(_blend);
+
+        _setManagerFee(0); // TODO check the default fee to set
     }
 
     /**
@@ -147,6 +151,7 @@ contract RangeProtocolBlurVault is
         _burn(msg.sender, shares);
 
         state.blurPool.withdraw(withdrawAmount);
+        withdrawAmount -= (withdrawAmount * state.managerFee) / 10_000; // apply manager fee
         Address.sendValue(payable(msg.sender), withdrawAmount);
 
         emit Burned(msg.sender, shares, withdrawAmount);
@@ -317,6 +322,14 @@ contract RangeProtocolBlurVault is
         emit NFTLiquidated(collection, tokenId, amount, recipient);
     }
 
+    function collectManagerFee() external onlyManager {
+        Address.sendValue(payable(manager()), address(this).balance);
+    }
+
+    function setManagerFee(uint256 managerFee) external onlyManager {
+        _setManagerFee(managerFee);
+    }
+
     function onERC721Received(
         address,
         address,
@@ -363,5 +376,14 @@ contract RangeProtocolBlurVault is
      */
     function _hashLien(Lien memory lien) private pure returns (bytes32) {
         return keccak256(abi.encode(lien));
+    }
+
+    function _setManagerFee(uint256 _managerFee) private {
+        if (_managerFee > MAX_MANAGER_FEE) {
+            revert VaultErrors.InvalidManagerFee(_managerFee);
+        }
+
+        state.managerFee = _managerFee;
+        emit ManagerFeeSet(_managerFee);
     }
 }

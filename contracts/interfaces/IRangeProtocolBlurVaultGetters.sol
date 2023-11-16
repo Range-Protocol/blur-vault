@@ -14,4 +14,5 @@ interface IRangeProtocolBlurVaultGetters {
         uint256 to
     ) external view returns (DataTypes.LienData[] memory liensData);
     function liensCount() external view returns (uint256);
+    function managerFee() external view returns (uint256);
 }
