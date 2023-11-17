@@ -15,9 +15,9 @@ const getInitData = ({ manager, blurPool, blend, name, symbol }) => {
 const BLUR_POOL = "0x0000000000A39bb272e79075ade125fd351887Ac";
 const BLEND = "0x29469395eAf6f95920E59F858042f0e28D98a20B";
 const HELPERS_LIB_ADDRESS = "0x5c55cd67a6bD0D4C315B50CB6CD589bfB080017E";
-const MANAGER = "0x5c55cd67a6bD0D4C315B50CB6CD589bfB080017E"; // to be updated
-const VAULT_NAME = "asdasd"; // to be updated
-const VAULT_SYMBOL = "asdasd"; // to be updated
+const MANAGER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"; // to be updated
+const VAULT_NAME = "Blur Vault"; // to be updated
+const VAULT_SYMBOL = "BV"; // to be updated
 
 async function main() {
   const RangeProtocolBlurVault = await ethers.getContractFactory(
