@@ -81,4 +81,7 @@ npx hardhat run scripts/ledger/deploy.proxy.js
 
 - **getCurrentlyOwnedDebt**\
   This function returns the sum of all debt currently owned by the vault across all of its lien.
+
+# Note:
+Some parameters of a Lien change when it is refinanced by the Blur vault. Similarly, the parameters of a Lien change again when it is put up for an auction, so retrieve latest parameters of a lien, the function `getLiensByIndex` should be called to retrieve the latest parameters of a Lien.
   
