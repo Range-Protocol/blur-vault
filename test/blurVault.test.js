@@ -37,19 +37,19 @@ const createLienFromData = (data) => {
 };
 
 let { lien, lienId } = createLienFromData({
-  id: 1016898,
-  lienId: 16084,
-  block: 18581124,
-  time: "2023-11-16 01:20:11.000 UTC",
-  collection: "0xd3d9ddd0cf0a5f0bfb8f7fceae075df687eaebab",
-  borrower: "0x5e5c817e9264b46cbbb980198684ad9d14f3e0b4",
-  lender: "0x51fee9bf45c5dab188b57048658696edab9d72cf",
-  tokenId: 3693,
-  amount: "240153470052526694",
-  rate: 0,
-  auctionDuration: 9000,
-  startTime: 1699995311,
-  auctionStartBlock: 18581124,
+  "id": 1040385,
+  "lienId": 1613,
+  "block": 18627251,
+  "time": "2023-11-22 12:23:23.000 UTC",
+  "collection": "0x5af0d9827e0c53e4799bb226655a1de152a425a5",
+  "borrower": "0xd4e3a3cb39c4f93cb4c87090f0c79787ea36ea27",
+  "lender": "0xb057cca21937e40b9e3b1299fb9ee576d558f160",
+  "tokenId": 3876,
+  "amount": "1000000000000000000",
+  "rate": 0,
+  "auctionDuration": 9000,
+  "startTime": 1700536511,
+  "auctionStartBlock": 18627251
 });
 
 async function mineNBlocks(n) {

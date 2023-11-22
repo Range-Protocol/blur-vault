@@ -170,11 +170,7 @@ contract RangeProtocolBlurVault is
         uint256 rate
     ) external override onlyManager {
         IBlurPool _blurPool = state.blurPool;
-        uint256 debt = Helpers.computeCurrentDebt(
-            lien.amount,
-            lien.rate,
-            lien.startTime
-        );
+        uint256 debt = getCurrentDebtByLienId(lien, lienId);
         if (debt > _blurPool.balanceOf(address(this))) {
             revert VaultErrors.InsufficientVaultBalance();
         }
@@ -217,8 +213,12 @@ contract RangeProtocolBlurVault is
         uint256 lienId
     ) external override onlyManager {
         uint256 lienArrayIdx = state.lienIdToIndex[lienId] - 1;
-        if (_hashLien(state.liens[lienArrayIdx].lien) != _hashLien(lien))
+        if (
+            _hashLien(state.liens[lienArrayIdx].lien) != _hashLien(lien) ||
+            !_isLienValid(lien, lienId)
+        ) {
             revert VaultErrors.InvalidLien(lien, lienId);
+        }
 
         state.liens[lienArrayIdx].lien.auctionStartBlock = block.number;
         state.blend.startAuction(lien, lienId);
@@ -322,14 +322,26 @@ contract RangeProtocolBlurVault is
         emit NFTLiquidated(collection, tokenId, amount, recipient);
     }
 
+    /**
+     * @dev Allows manager to collect their fees.
+     * Can only be called by the manager.
+     */
     function collectManagerFee() external onlyManager {
         Address.sendValue(payable(manager()), address(this).balance);
     }
 
+    /**
+     * @dev Allows manager to set their fee. Max manager fee is capped at 10%.
+     * Can only be called by the manager.
+     * @param managerFee managerFee percentage to set.
+     */
     function setManagerFee(uint256 managerFee) external onlyManager {
         _setManagerFee(managerFee);
     }
 
+    /**
+     * @dev Callback called by the ERC721 collection when transferring token to the contract recipient
+     */
     function onERC721Received(
         address,
         address,
@@ -372,12 +384,70 @@ contract RangeProtocolBlurVault is
     }
 
     /**
+     * @dev returns the current debt owed by a lien borrower.
+     * @param lien The lien to get current debt for.
+     * @param lienId The id of the lien for which the debt is calculated.
+     * @return currentDebt The debt amount owed by the lien borrower.
+     */
+    function getCurrentDebtByLienId(
+        Lien calldata lien,
+        uint256 lienId
+    ) public view returns (uint256 currentDebt) {
+        if (!_isLienValid(lien, lienId)) {
+            revert VaultErrors.InvalidLien(lien, lienId);
+        }
+        currentDebt = Helpers.computeCurrentDebt(
+            lien.amount,
+            lien.rate,
+            lien.startTime
+        );
+    }
+
+    /**
+     * @dev Returns the current auction rate limit for a lien having a live auction.
+     * @param lien The lien to calculate the current auction rate limit.
+     * @param lienId The lien id to calculate the current auction rate limit.
+     * @return rateLimit The current auction rate limit for a given lien.
+     */
+    function getRefinancingAuctionRate(
+        Lien calldata lien,
+        uint256 lienId
+    ) public view returns (uint256 rateLimit) {
+        if (!_isLienValid(lien, lienId)) {
+            revert VaultErrors.InvalidLien(lien, lienId);
+        }
+        rateLimit = Helpers.calcRefinancingAuctionRate(
+            lien.auctionStartBlock,
+            lien.auctionDuration,
+            lien.rate
+        );
+    }
+
+    /**
+     * @dev Verifies that the lien is valid on the Blur contract.
+     * @param lien The lien to check the validity for.
+     * @param lienId The id of the lien to check validity for.
+     * @param bool True if lien is active, false otherwise.
+     */
+    function _isLienValid(
+        Lien calldata lien,
+        uint256 lienId
+    ) private view returns (bool) {
+        return state.blend.liens(lienId) == _hashLien(lien);
+    }
+
+    /**
      * @dev hashes the lien struct passed to it and returns it.
      */
     function _hashLien(Lien memory lien) private pure returns (bytes32) {
         return keccak256(abi.encode(lien));
     }
 
+    /**
+     * @dev Sets manager fee percentage a new value.
+     * Reverts if newManagerFee exceeds the MAX_MANAGER_FEE
+     * @param _managerFee The manager fee percentage to set.
+     */
     function _setManagerFee(uint256 _managerFee) private {
         if (_managerFee > MAX_MANAGER_FEE) {
             revert VaultErrors.InvalidManagerFee(_managerFee);
