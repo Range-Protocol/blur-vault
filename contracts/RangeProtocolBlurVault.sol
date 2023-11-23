@@ -170,7 +170,7 @@ contract RangeProtocolBlurVault is
         uint256 rate
     ) external override onlyManager {
         IBlurPool _blurPool = state.blurPool;
-        uint256 debt = getCurrentDebtByLienId(lien, lienId);
+        uint256 debt = getCurrentDebtByLien(lien, lienId);
         if (debt > _blurPool.balanceOf(address(this))) {
             revert VaultErrors.InsufficientVaultBalance();
         }
@@ -389,10 +389,10 @@ contract RangeProtocolBlurVault is
      * @param lienId The id of the lien for which the debt is calculated.
      * @return currentDebt The debt amount owed by the lien borrower.
      */
-    function getCurrentDebtByLienId(
+    function getCurrentDebtByLien(
         Lien calldata lien,
         uint256 lienId
-    ) public view returns (uint256 currentDebt) {
+    ) public view override returns (uint256 currentDebt) {
         if (!_isLienValid(lien, lienId)) {
             revert VaultErrors.InvalidLien(lien, lienId);
         }
@@ -412,7 +412,7 @@ contract RangeProtocolBlurVault is
     function getRefinancingAuctionRate(
         Lien calldata lien,
         uint256 lienId
-    ) public view returns (uint256 rateLimit) {
+    ) public view override returns (uint256 rateLimit) {
         if (!_isLienValid(lien, lienId)) {
             revert VaultErrors.InvalidLien(lien, lienId);
         }
@@ -427,7 +427,7 @@ contract RangeProtocolBlurVault is
      * @dev Verifies that the lien is valid on the Blur contract.
      * @param lien The lien to check the validity for.
      * @param lienId The id of the lien to check validity for.
-     * @param bool True if lien is active, false otherwise.
+     * @return bool True if lien is active, false otherwise.
      */
     function _isLienValid(
         Lien calldata lien,

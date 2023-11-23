@@ -15,4 +15,12 @@ interface IRangeProtocolBlurVaultGetters {
     ) external view returns (DataTypes.LienData[] memory liensData);
     function liensCount() external view returns (uint256);
     function managerFee() external view returns (uint256);
+    function getRefinancingAuctionRate(
+        Lien calldata lien,
+        uint256 lienId
+    ) external view returns (uint256 rateLimit);
+    function getCurrentDebtByLien(
+        Lien calldata lien,
+        uint256 lienId
+    ) external view returns (uint256 currentDebt);
 }

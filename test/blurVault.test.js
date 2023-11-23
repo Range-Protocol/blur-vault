@@ -37,19 +37,19 @@ const createLienFromData = (data) => {
 };
 
 let { lien, lienId } = createLienFromData({
-  "id": 1040385,
-  "lienId": 1613,
-  "block": 18627251,
-  "time": "2023-11-22 12:23:23.000 UTC",
-  "collection": "0x5af0d9827e0c53e4799bb226655a1de152a425a5",
-  "borrower": "0xd4e3a3cb39c4f93cb4c87090f0c79787ea36ea27",
-  "lender": "0xb057cca21937e40b9e3b1299fb9ee576d558f160",
-  "tokenId": 3876,
-  "amount": "1000000000000000000",
+  "id": 1040956,
+  "lienId": 7472,
+  "block": 18630100,
+  "time": "2023-11-22 21:56:23.000 UTC",
+  "collection": "0xb7f7f6c52f2e2fdb1963eab30438024864c313f6",
+  "borrower": "0x535afd13666e0f7f1c452ce6512bbb97168dccdf",
+  "lender": "0xb23a734f49ed11dc3b0dd3ff322b5df95220574e",
+  "tokenId": 9068,
+  "amount": "14140000000000000000",
   "rate": 0,
   "auctionDuration": 9000,
-  "startTime": 1700536511,
-  "auctionStartBlock": 18627251
+  "startTime": 1700596511,
+  "auctionStartBlock": 18630100
 });
 
 async function mineNBlocks(n) {
@@ -103,8 +103,6 @@ describe("Blur Vault", () => {
     const proxy = await ERC1967Proxy.deploy(vaultImpl.address, calldata);
     vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
     vaultAddress = vault.address;
-    console.log((await ethers.provider.getBlock("latest")).number);
-    console.log(vaultAddress);
 
     expect(await vault.blurPool()).to.be.equal(BLUR_POOL);
     expect(await vault.blend()).to.be.equal(BLEND);
@@ -148,6 +146,7 @@ describe("Blur Vault", () => {
     });
 
     it("should refinance auction", async () => {
+      const debtExpected = await vault.getCurrentDebtByLien(lien, lienId);
       const vaultBalanceBefore = await blurPool.balanceOf(vaultAddress);
       const newRate = 20;
       const txData = await (
@@ -163,6 +162,7 @@ describe("Blur Vault", () => {
       });
 
       expect(vaultBalanceAfter).to.be.equal(vaultBalanceBefore.sub(debt));
+      expect(debt).to.be.equal(debtExpected);
       const timestamp = (await ethers.provider.getBlock(txData.blockNumber))
         .timestamp;
       const hash = ethers.utils.defaultAbiCoder.encode(
