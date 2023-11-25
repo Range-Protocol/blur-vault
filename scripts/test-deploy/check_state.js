@@ -4,6 +4,8 @@
 // You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
+const fs = require("fs");
+const path = require("path");
 const {ethers, upgrades} = require("hardhat");
 const getInitData = ({manager, blurPool, blend, name, symbol}) => {
 	return ethers.utils.defaultAbiCoder.encode(
@@ -20,10 +22,18 @@ const VAULT_NAME = "Blur Vault"; // to be updated
 const VAULT_SYMBOL = "BV"; // to be updated
 
 async function main() {
-	const vault = await ethers.getContractAt("RangeProtocolBlurVault", "0x9eb52339B52e71B1EFD5537947e75D23b3a7719B");
+	const vault = await ethers.getContractAt("RangeProtocolBlurVault", "0xf18774574148852771c2631d7d06E2A6c8b44fCA");
 	const lienCount = await vault.liensCount();
 	const liens = await vault.getLiensByIndex(0, lienCount);
-	console.log("Liens: ", liens);
+	liens.forEach(lien => {
+		const lienObj = {};
+		Object.keys(lien.lien).forEach(key => {
+			if (isNaN(parseInt(key))) {
+				lienObj[key] = lien.lien[key].toString();
+			}
+		});
+		fs.writeFileSync(path.join(__dirname, `${lien.lienId}.json`), JSON.stringify(lienObj));
+	});
 	
 	// for (let i = 0; i < 9000; i++) await ethers.provider.send("evm_mine");
 	const owner = await ethers.provider.call({

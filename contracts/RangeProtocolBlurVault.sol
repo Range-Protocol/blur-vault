@@ -312,8 +312,8 @@ contract RangeProtocolBlurVault is
         if (ECDSA.recover(hash, signature) != manager()) {
             revert VaultErrors.InvalidSignature(signature);
         }
-        IERC721(collection).transferFrom(address(this), recipient, tokenId);
         state.blurPool.deposit{value: amount}();
+        IERC721(collection).transferFrom(address(this), recipient, tokenId);
 
         if (amount > msg.value) {
             Address.sendValue(payable(msg.sender), amount - msg.value);

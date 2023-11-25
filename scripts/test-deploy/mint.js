@@ -20,7 +20,7 @@ const VAULT_NAME = "asdasd"; // to be updated
 const VAULT_SYMBOL = "asdasd"; // to be updated
 
 async function main() {
-	const vault = await ethers.getContractAt("RangeProtocolBlurVault", "0x9eb52339B52e71B1EFD5537947e75D23b3a7719B");
+	const vault = await ethers.getContractAt("RangeProtocolBlurVault", "0xf18774574148852771c2631d7d06E2A6c8b44fCA");
 	const amount = ethers.utils.parseEther("100");
 	await vault.mint(amount, {value: amount})
 	// await signer.sendTransaction({
