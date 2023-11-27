@@ -16,7 +16,7 @@ const getInitData = ({ manager, blurPool, blend, name, symbol }) => {
 
 const BLUR_POOL = "0x0000000000A39bb272e79075ade125fd351887Ac";
 const BLEND = "0x29469395eAf6f95920E59F858042f0e28D98a20B";
-const MANAGER = ""; // to be updated
+const MANAGER = "0xc8D04aDBB5029EcC97Caa3e6065DAC8b1008a881"; // to be updated
 const VAULT_NAME = ""; // to be updated
 const VAULT_SYMBOL = ""; // to be updated
 const IMPLEMENTATION = ""; // to be updated
