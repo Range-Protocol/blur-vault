@@ -8,6 +8,7 @@
     "deploy-local": "npx hardhat run scripts/test-deploy/deploy.js --network localhost",
     "mint-local": "npx hardhat run scripts/test-deploy/mint.js --network localhost",
     "status-local": "npx hardhat run scripts/test-deploy/check_state.js --network localhost",
+    "status-mainchain": "npx hardhat run scripts/test-deploy/check_state.js --network mainnet",
     "test": "npx hardhat test",
     "prettier-contracts": "prettier --write 'contracts/**/**/*.sol'",
     "prettier-test": "prettier --write 'test/**/**/*.js'",

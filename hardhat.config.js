@@ -16,6 +16,9 @@ module.exports = {
         // blockNumber: 18568795
       }
     },
+    mainnet: {
+      url: "https://1rpc.io/eth"
+    },
     localhost: {
       url: "http://127.0.0.1:8545",
       accounts: [
