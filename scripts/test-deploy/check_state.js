@@ -29,7 +29,7 @@ async function main() {
 		const lienObj = {};
 		Object.keys(lien.lien).forEach(key => {
 			if (isNaN(parseInt(key))) {
-				lienObj[key] = lien.lien[key].toString();
+				lienObj[key] = lien.lien[key].toString()
 			}
 		});
 		fs.writeFileSync(path.join(__dirname, `${lien.lienId}.json`), JSON.stringify(lienObj));

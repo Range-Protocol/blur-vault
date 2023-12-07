@@ -1,0 +1,11 @@
+{
+  "lender": "0xeD72A71161258FC3Dc31e57650E2b464c69f4dC1",
+  "borrower": "0x9162D45686b1E73050D656b48d7d21AA1Ef90fE5",
+  "collection": "0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B",
+  "tokenId": "15288",
+  "amount": "1515409113598302834",
+  "startTime": "1701741167",
+  "rate": "0",
+  "auctionStartBlock": "18717420",
+  "auctionDuration": "9000"
+}
