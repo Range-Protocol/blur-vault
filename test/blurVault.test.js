@@ -37,19 +37,19 @@ const createLienFromData = (data) => {
 };
 
 let { lien, lienId } = createLienFromData({
-  "id": 1048480,
-  "lienId": 126748,
-  "block": 18645130,
-  "time": "2023-11-25 00:27:11.000 UTC",
-  "collection": "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
-  "borrower": "0x92be9a3f9f5b3ba7d8d18430723d3c4f82539e74",
-  "lender": "0x7df70b612040c682d1cb2e32017446e230fcd747",
-  "tokenId": 4295,
-  "amount": "26710000000000000000",
-  "rate": 500,
+  "id": 1133088,
+  "lienId": 110818,
+  "block": 18774180,
+  "time": "2023-12-13 02:09:35.000 UTC",
+  "collection": "0x60e4d786628fea6478f785a6d7e704777c86a7c6",
+  "borrower": "0x1151570e89fff108a6cd2a6225809ce79d75a48b",
+  "lender": "0x002b05d19cb34a3336e9095c1de60248a12970dd",
+  "tokenId": 10424,
+  "amount": "5004583215089004918",
+  "rate": 18866,
   "auctionDuration": 9000,
-  "startTime": 1700784407,
-  "auctionStartBlock": 18645130
+  "startTime": 1700693591,
+  "auctionStartBlock": 18774180
 });
 
 async function mineNBlocks(n) {
@@ -80,15 +80,15 @@ describe("Blur Vault", () => {
 
   it("Should deploy Blur Vault", async () => {
     [manager, user] = await ethers.getSigners();
-    const RangeProtocolBlurVault = await ethers.getContractFactory(
-      "RangeProtocolBlurVault",
+    const RangeProtocolBlendVault = await ethers.getContractFactory(
+      "RangeProtocolBlendVault",
       {
         libraries: {
           Helpers: HELPERS_LIB_ADDRESS,
         },
       }
     );
-    const vaultImpl = await RangeProtocolBlurVault.deploy();
+    const vaultImpl = await RangeProtocolBlendVault.deploy();
     const initData = getInitData({
       manager: manager.address,
       blurPool: BLUR_POOL,
@@ -101,7 +101,7 @@ describe("Blur Vault", () => {
     ]);
     const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
     const proxy = await ERC1967Proxy.deploy(vaultImpl.address, calldata);
-    vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
+    vault = await ethers.getContractAt("RangeProtocolBlendVault", proxy.address);
     vaultAddress = vault.address;
 
     expect(await vault.blurPool()).to.be.equal(BLUR_POOL);
@@ -254,7 +254,7 @@ describe("Blur Vault", () => {
     });
   });
 
-  describe("Take up auction by another account", () => {
+  describe.skip("Take up auction by another account", () => {
     before(async () => {
       await mineNBlocks(lien.auctionDuration.div(bn(2)));
     });
@@ -279,23 +279,23 @@ describe("Blur Vault", () => {
 
       const rateLimit = await vault.getRefinancingAuctionRate(lien, lienId);
       const debt = await vault.getCurrentDebtByLien(lien, lienId);
-      console.log("Debt: ", debt.toString());
-      console.log(debt, await blurPool.balanceOf(user.address));
+      // console.log("Debt: ", debt.toString());
+      // console.log(debt, await blurPool.balanceOf(user.address));
       const vaultBalanceBefore = await blurPool.balanceOf(vaultAddress);
-      console.log(
-        "Vault balance before auction being taken up: ",
-        vaultBalanceBefore.toString()
-      );
+      // console.log(
+      //   "Vault balance before auction being taken up: ",
+      //   vaultBalanceBefore.toString()
+      // );
       await blend.connect(user).refinanceAuction(lien, lienId, 1);
       const vaultBalanceAfter = await blurPool.balanceOf(vaultAddress);
-      console.log(
-        "Vault balance after auction being taken up: ",
-        vaultBalanceAfter.toString()
-      );
+      // console.log(
+      //   "Vault balance after auction being taken up: ",
+      //   vaultBalanceAfter.toString()
+      // );
     });
   });
 
-  describe.skip("Seize NFT", () => {
+  describe("Seize NFT", () => {
     before(async () => {
       await mineNBlocks(lien.auctionDuration);
     });
@@ -307,7 +307,13 @@ describe("Blur Vault", () => {
     });
 
     it("should seize NFT", async () => {
+      expect(await vault.virtualBalance()).to.be.equal(0);
+      console.log((await vault.getUnderlyingBalance()).toString());
+      debt = await vault.getCurrentDebtByLien(lien, lienId);
       await vault.seize([[lien, lienId]]);
+      console.log((await vault.getUnderlyingBalance()).toString());
+      expect(await vault.virtualBalance())
+				.to.be.equal(await vault.lienIdToVirtualBalance(lienId));
       const collection = await ethers.getContractAt("IERC721", lien.collection);
       expect(await collection.ownerOf(lien.tokenId)).to.be.equal(vaultAddress);
     });
@@ -319,7 +325,7 @@ describe("Blur Vault", () => {
     });
   });
 
-  describe.skip("Liquidate NFT", () => {
+  describe("Liquidate NFT", () => {
     let types;
     let domain;
     let liquidateOrder;
@@ -370,6 +376,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -388,6 +395,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -406,6 +414,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -424,6 +433,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -442,6 +452,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             ethers.constants.AddressZero,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -460,6 +471,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             0,
             liquidateOrder.amount,
@@ -490,10 +502,14 @@ describe("Blur Vault", () => {
       // address recipient,
       // uint256 deadline,
       // bytes calldata signature
+      console.log(await vault.virtualBalance());
+      console.log(await vault.getUnderlyingBalance());
+      console.log(await vault.lienIdToVirtualBalance(lienId))
       await expect(
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -512,6 +528,9 @@ describe("Blur Vault", () => {
           liquidateOrder.amount,
           liquidateOrder.recipient
         );
+      console.log(await vault.virtualBalance());
+      console.log(await vault.getUnderlyingBalance());
+      console.log(await vault.lienIdToVirtualBalance(lienId))
 
       const vaultBalanceAfter = await blurPool.balanceOf(vaultAddress);
       expect(vaultBalanceAfter).to.be.equal(
@@ -532,6 +551,7 @@ describe("Blur Vault", () => {
         vault
           .connect(user)
           .liquidateNFT(
+						lienId,
             liquidateOrder.collection,
             liquidateOrder.tokenId,
             liquidateOrder.amount,
@@ -629,7 +649,7 @@ describe("Blur Vault", () => {
     ]);
 
     before(async () => {
-      const RangeProtocolBlurVault = await ethers.getContractFactory(
+      const RangeProtocolBlendVault = await ethers.getContractFactory(
         "MockVault",
         {
           libraries: {
@@ -638,7 +658,7 @@ describe("Blur Vault", () => {
         }
       );
 
-      vaultImpl = await RangeProtocolBlurVault.deploy();
+      vaultImpl = await RangeProtocolBlendVault.deploy();
     });
 
     it("non-manager should not upgrade proxy", async () => {

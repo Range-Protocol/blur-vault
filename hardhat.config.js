@@ -12,7 +12,7 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: "https://1rpc.io/eth",
+        url: "https://eth-mainnet.g.alchemy.com/v2/CjYmaEKxlp-_BuTgFt22DeY3YlTQWY8O",
         // blockNumber: 18568795
       }
     },
@@ -32,13 +32,13 @@ module.exports = {
       {
         version: "0.8.17",
         settings: {
-          optimizer: { enabled: true, runs: 200 },
+          optimizer: { enabled: true, runs: 100 },
         },
       },
       {
         version: "0.8.20",
         settings: {
-          optimizer: { enabled: true, runs: 200 },
+          optimizer: { enabled: true, runs: 100 },
         },
       },
     ],

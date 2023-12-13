@@ -2,12 +2,12 @@
 pragma solidity 0.8.20;
 
 import {DataTypes} from "./libraries/DataTypes.sol";
-import {IRangeProtocolBlurVault} from "./interfaces/IRangeProtocolBlurVault.sol";
+import {IRangeProtocolBlendVault} from "./interfaces/IRangeProtocolBlendVault.sol";
 import {Lien} from "./blur/contracts/blend/lib/Structs.sol";
 import {IBlurPool} from "./blur/contracts/pool/interfaces/IBlurPool.sol";
 import {IBlend} from "./blur/contracts/blend/interfaces/IBlend.sol";
 
-abstract contract RangeProtocolBlurVaultStorage is IRangeProtocolBlurVault {
+abstract contract RangeProtocolBlendVaultStorage is IRangeProtocolBlendVault {
     DataTypes.State internal state;
 
     function blurPool() external view override returns (IBlurPool) {
@@ -32,7 +32,17 @@ abstract contract RangeProtocolBlurVaultStorage is IRangeProtocolBlurVault {
         return state.liens.length;
     }
 
-    function managerFee() external view returns (uint256) {
+    function managerFee() external view override returns (uint256) {
         return state.managerFee;
+    }
+
+    function lienIdToVirtualBalance(
+        uint256 lienId
+    ) external view override returns (uint256) {
+        return state.lienIdToVirtualBalance[lienId];
+    }
+
+    function virtualBalance() external view override returns (uint256) {
+        return state.virtualBalance;
     }
 }

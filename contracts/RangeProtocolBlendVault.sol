@@ -19,16 +19,16 @@ import {Helpers} from "./blur/contracts/blend/Helpers.sol";
 import {Lien, LienPointer} from "./blur/contracts/blend/lib/Structs.sol";
 
 import {OwnableUpgradeable} from "./access/OwnableUpgradeable.sol";
-import {RangeProtocolBlurVaultStorage} from "./RangeProtocolBlurVaultStorage.sol";
+import {RangeProtocolBlendVaultStorage} from "./RangeProtocolBlendVaultStorage.sol";
 import {VaultErrors} from "./errors/VaultErrors.sol";
 import {FullMath} from "./libraries/FullMath.sol";
 import {DataTypes} from "./libraries/DataTypes.sol";
 
 /**
- * @title RangeProtocolBlurVault
- * @dev The contract provides fungible interface for lending ETH on Blur protocol based on strategy run by Range.
+ * @title RangeProtocolBlendVault
+ * @dev The contract provides fungible interface for lending ETH on Blend protocol based on strategy run by Range.
  */
-contract RangeProtocolBlurVault is
+contract RangeProtocolBlendVault is
     Initializable,
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -38,7 +38,7 @@ contract RangeProtocolBlurVault is
     EIP712Upgradeable,
     NoncesUpgradeable,
     IERC721Receiver,
-    RangeProtocolBlurVaultStorage
+    RangeProtocolBlendVaultStorage
 {
     uint256 public constant MAX_MANAGER_FEE = 1000; // capped at 10%
 
@@ -234,6 +234,15 @@ contract RangeProtocolBlurVault is
     ) external override onlyManager {
         state.blend.seize(lienPointers);
         for (uint256 i = 0; i < lienPointers.length; i++) {
+            uint256 virtualBalance = Helpers.computeCurrentDebt(
+                lienPointers[i].lien.amount,
+                lienPointers[i].lien.rate,
+                lienPointers[i].lien.startTime
+            );
+            state.lienIdToVirtualBalance[
+                lienPointers[i].lienId
+            ] = virtualBalance;
+            state.virtualBalance += virtualBalance;
             emit NFTSeized(
                 address(lienPointers[i].lien.collection),
                 lienPointers[i].lien.tokenId,
@@ -278,6 +287,7 @@ contract RangeProtocolBlurVault is
      * @param signature the manager signed signature.
      */
     function liquidateNFT(
+        uint256 lienId,
         address collection,
         uint256 tokenId,
         uint256 amount,
@@ -312,6 +322,8 @@ contract RangeProtocolBlurVault is
         if (ECDSA.recover(hash, signature) != manager()) {
             revert VaultErrors.InvalidSignature(signature);
         }
+        state.virtualBalance -= state.lienIdToVirtualBalance[lienId];
+        delete state.lienIdToVirtualBalance[lienId];
         state.blurPool.deposit{value: amount}();
         IERC721(collection).transferFrom(address(this), recipient, tokenId);
 
@@ -357,7 +369,9 @@ contract RangeProtocolBlurVault is
      */
     function getUnderlyingBalance() public view override returns (uint256) {
         return
-            state.blurPool.balanceOf(address(this)) + getCurrentlyOwnedDebt();
+            state.blurPool.balanceOf(address(this)) +
+            getCurrentlyOwnedDebt() +
+            state.virtualBalance;
     }
 
     /**

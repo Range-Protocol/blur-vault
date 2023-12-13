@@ -7,23 +7,22 @@
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
 
-const HELPERS_LIB_ADDRESS = "0x5c55cd67a6bD0D4C315B50CB6CD589bfB080017E";
-
 async function main() {
 	const provider = ethers.getDefaultProvider("");
 	const ledger = await new LedgerSigner(provider, "");
-	let RangeProtocolBlendVault = await ethers.getContractFactory(
-		"RangeProtocolBlendVault",
-		{
-			libraries: {
-				Helpers: HELPERS_LIB_ADDRESS,
-			},
-		}
-	);
-	RangeProtocolBlendVault = RangeProtocolBlendVault.connect(ledger);
-	const vaultImpl = await RangeProtocolBlendVault.deploy();
+	const impl = ""; // to be updated.
 	
-	console.log("Implementation: ", vaultImpl.address);
+	const UPGRADE_INTERFACE = new ethers.utils.Interface([
+		"function upgradeToAndCall(address newImplementation, bytes memory data) public"
+	]);	const data = UPGRADE_INTERFACE.encodeFunctionData("upgradeToAndCall", [
+		impl,
+		"0x"
+	]);
+	
+	await ledger.sendTransaction({
+		to: "0xeD72A71161258FC3Dc31e57650E2b464c69f4dC1",
+		data
+	});
 }
 
 // We recommend this pattern to be able to use async/await everywhere

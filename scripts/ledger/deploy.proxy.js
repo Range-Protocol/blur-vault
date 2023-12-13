@@ -31,13 +31,13 @@ async function main() {
 		name: VAULT_NAME,
 		symbol: VAULT_SYMBOL,
 	});
-	const RangeProtocolBlurVault = await ethers.getContractAt("RangeProtocolBlurVault", IMPLEMENTATION);
-	const calldata = RangeProtocolBlurVault.interface.encodeFunctionData("initialize", [
+	const RangeProtocolBlendVault = await ethers.getContractAt("RangeProtocolBlendVault", IMPLEMENTATION);
+	const calldata = RangeProtocolBlendVault.interface.encodeFunctionData("initialize", [
 		initData,
 	]);
 	const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
 	const proxy = await ERC1967Proxy.deploy(IMPLEMENTATION, calldata);
-	const vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
+	const vault = await ethers.getContractAt("RangeProtocolBlendVault", proxy.address);
 	console.log("Proxy: ", vault.address);
 }
 

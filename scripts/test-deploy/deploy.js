@@ -20,15 +20,16 @@ const VAULT_NAME = "Blur Vault"; // to be updated
 const VAULT_SYMBOL = "BV"; // to be updated
 
 async function main() {
-  const RangeProtocolBlurVault = await ethers.getContractFactory(
-    "RangeProtocolBlurVault",
+  const RangeProtocolBlendVault = await ethers.getContractFactory(
+    "RangeProtocolBlendVault",
     {
       libraries: {
         Helpers: HELPERS_LIB_ADDRESS,
       },
     }
   );
-  const vaultImpl = await RangeProtocolBlurVault.deploy();
+  const vaultImpl = await RangeProtocolBlendVault.deploy();
+  console.log(vaultImpl.deployTransaction.gasLimit)
   const initData = getInitData({
     manager: MANAGER,
     blurPool: BLUR_POOL,
@@ -41,7 +42,7 @@ async function main() {
   ]);
   const ERC1967Proxy = await ethers.getContractFactory("ERC1967Proxy");
   const proxy = await ERC1967Proxy.deploy(vaultImpl.address, calldata);
-  const vault = await ethers.getContractAt("RangeProtocolBlurVault", proxy.address);
+  const vault = await ethers.getContractAt("RangeProtocolBlendVault", proxy.address);
   
   console.log("Implementation: ", vaultImpl.address);
   console.log("Proxy: ", vault.address);

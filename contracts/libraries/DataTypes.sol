@@ -17,5 +17,7 @@ library DataTypes {
         LienData[] liens;
         mapping(uint256 => uint256) lienIdToIndex;
         uint256 managerFee;
+        mapping(uint256 => uint256) lienIdToVirtualBalance;
+        uint256 virtualBalance;
     }
 }

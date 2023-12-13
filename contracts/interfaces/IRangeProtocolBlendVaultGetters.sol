@@ -6,7 +6,7 @@ import {IBlurPool} from "../blur/contracts/pool/interfaces/IBlurPool.sol";
 import {IBlend} from "../blur/contracts/blend/interfaces/IBlend.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
 
-interface IRangeProtocolBlurVaultGetters {
+interface IRangeProtocolBlendVaultGetters {
     function blurPool() external view returns (IBlurPool);
     function blend() external view returns (IBlend);
     function getLiensByIndex(
@@ -23,4 +23,8 @@ interface IRangeProtocolBlurVaultGetters {
         Lien calldata lien,
         uint256 lienId
     ) external view returns (uint256 currentDebt);
+    function lienIdToVirtualBalance(
+        uint256 lienId
+    ) external view returns (uint256);
+    function virtualBalance() external view returns (uint256);
 }

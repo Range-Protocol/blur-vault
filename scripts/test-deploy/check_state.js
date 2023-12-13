@@ -22,7 +22,7 @@ const VAULT_NAME = "Blur Vault"; // to be updated
 const VAULT_SYMBOL = "BV"; // to be updated
 
 async function main() {
-	const vault = await ethers.getContractAt("RangeProtocolBlurVault", "0xeD72A71161258FC3Dc31e57650E2b464c69f4dC1");
+	const vault = await ethers.getContractAt("RangeProtocolBlendVault", "0xeD72A71161258FC3Dc31e57650E2b464c69f4dC1");
 	const lienCount = await vault.liensCount();
 	const liens = await vault.getLiensByIndex(0, lienCount);
 	liens.forEach(lien => {

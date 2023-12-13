@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.20;
 
-import {IRangeProtocolBlurVaultGetters} from "./IRangeProtocolBlurVaultGetters.sol";
+import {IRangeProtocolBlendVaultGetters} from "./IRangeProtocolBlendVaultGetters.sol";
 import {Lien, LienPointer} from "../blur/contracts/blend/lib/Structs.sol";
 
-interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
+interface IRangeProtocolBlendVault is IRangeProtocolBlendVaultGetters {
     struct LiquidateNFT {
         address recipient;
         uint256 amount;
@@ -38,6 +38,7 @@ interface IRangeProtocolBlurVault is IRangeProtocolBlurVaultGetters {
     function seize(LienPointer[] calldata lienPointers) external;
     function cleanUpLiensArray() external;
     function liquidateNFT(
+        uint256 lienId,
         address collection,
         uint256 tokenId,
         uint256 amount,
